@@ -299,6 +299,78 @@ struct npc_air_force_bots : public CreatureScript
 #endif
 
 /*########
+# npc_target_dummy
+#########*/
+
+enum spells
+{
+    SPELL_INSTAKILL             = 28748,
+    SPELL_DUMMY_TAUNT           = 4044
+};
+
+
+class npc_target_dummy : public CreatureScript
+{
+public:
+    npc_target_dummy() : CreatureScript("npc_target_dummy") { }
+
+    struct npc_target_dummyAI : ScriptedAI
+    {
+        npc_target_dummyAI(Creature* creature) : ScriptedAI(creature)
+        {
+            SetCombatMovement(false);
+            deathTimer = 15000;
+            tauntTimer = 3000;
+            m_creature->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_KNOCK_BACK, true); //imune to knock aways like blast wave
+            m_creature->SetFlag(UNIT_DYNAMIC_FLAGS, UNIT_FLAG_STUNNED);
+            
+        }
+
+        uint32 deathTimer;
+        uint32 tauntTimer;
+
+        void Reset()
+        {
+            m_creature->SetRoot(true); //disable rotate
+            m_creature->SetLootRecipient(m_creature->GetOwner());
+            m_creature->SelectLevel();
+        }
+
+        void EnterEvadeMode()
+        {
+            Reset();
+        }
+        
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (tauntTimer <= uiDiff)
+            {
+                m_creature->CastSpell(m_creature, SPELL_DUMMY_TAUNT, false, false);
+                tauntTimer = 3000;
+            }
+            else
+                tauntTimer -= uiDiff;
+
+            if (deathTimer <= uiDiff)
+            {
+                m_creature->SetLootRecipient(m_creature->GetOwner());
+                m_creature->LowerPlayerDamageReq(m_creature->GetMaxHealth());
+                m_creature->CastSpell(m_creature, SPELL_INSTAKILL, false, false);
+                deathTimer = 600000;
+            }
+            else
+                deathTimer -= uiDiff;
+        }
+    
+    };
+    CreatureAI* GetAI(Creature* pCreature) override
+    {
+        return new npc_target_dummyAI(pCreature);
+    }
+};
+
+
+/*########
 # npc_chicken_cluck
 #########*/
 
@@ -1888,6 +1960,8 @@ void AddSC_npcs_special()
     s->RegisterSelf();
 #if defined(CLASSIC)
     s = new spell_npc_redemption_target();
+    s->RegisterSelf();
+    s = new npc_target_dummy();
     s->RegisterSelf();
 #endif
 #if defined(TBC) || defined(WOTLK)
